@@ -35,13 +35,34 @@ from utils.format_vhd import format_vhd_output
 
 
 def read_txt(path):
+    """读取文本文件的内容。
+
+    Args:
+        path (str): 文本文件路径。
+
+    Returns:
+        str: 文本内容。
+    """
     with open(path, "r") as fin:
         data = fin.readline().strip()
     return data
 
 
 def load_data(args, anno_path, split=None):
-    '''
+    """从JSON文件中加载注释数据。
+
+    Args:
+        args (Namespace): 包含配置选项的参数。
+        anno_path (str): 包含注释文件的目录路径。
+        split (str, optional): 要加载的数据集划分（例如，'train', 'val'）。默认为None。
+
+    Returns:
+        list: 注释字典的列表。
+
+    示例:
+    注意:
+        如果args.debug为True，则只返回前10个注释。
+
     anno data example:
     {"annotations":
         [
@@ -52,7 +73,7 @@ def load_data(args, anno_path, split=None):
             ...
         ]
     }
-    '''
+    """
     file_path = os.path.join(anno_path, f'{split}.caption_coco_format.json')
     with open(file_path, 'r') as f:
         data = json.load(f)["annotations"]
@@ -63,7 +84,14 @@ def load_data(args, anno_path, split=None):
 
 
 def merge_seg_caps(results):
-    """merge mulple generated captions from a same video into paragraph."""
+    """合并来自同一视频的多个生成字幕为段落。
+
+    Args:
+        results (list): 生成的字幕结果。
+
+    Returns:
+        dict: 合并后的结果。
+    """
     merge_results = {}
     for jterm in results:
         vname = jterm["vname"]
@@ -78,6 +106,15 @@ def merge_seg_caps(results):
 
 
 def save_result(args, output_dir, results, split_name='test', format=False):
+    """保存结果到文件。
+
+    Args:
+        args (Namespace): 参数。
+        output_dir (str): 输出目录。
+        results (list): 结果数据。
+        split_name (str, optional): 数据集划分名称。默认为'test'。
+        format (bool, optional): 是否格式化。默认为False。
+    """
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     file_name = f'{args.dataset}_{split_name}_f{args.num_frames}_result.json'
     if args.timestamp:
@@ -90,11 +127,19 @@ def save_result(args, output_dir, results, split_name='test', format=False):
     if format:
         file_name = 'fmt_' + file_name
     with open(os.path.join(output_dir, file_name), 'w') as f:
-        json.dump(results, f)
+        json.dump(results, f, indent=4)
     return
 
 
 def get_timestamp_from_file(timestamp_file):
+    """从文件中获取时间戳。
+
+    Args:
+        timestamp_file (str): 时间戳文件路径。
+
+    Returns:
+        dict: 时间戳数据。
+    """
     timestamp = {}
     with open(timestamp_file, 'r') as f:
         data = json.load(f)
@@ -106,6 +151,14 @@ def get_timestamp_from_file(timestamp_file):
 
 
 def format_dvc(datas):
+    """格式化DVC任务的结果。
+
+    Args:
+        datas (list): 数据。
+
+    Returns:
+        dict: 格式化后的数据。
+    """
     fmt_datas = {}
     timestamp_count = []
     cnt = 0
@@ -126,6 +179,14 @@ def format_dvc(datas):
 
 
 def format_tvg(datas):
+    """格式化TVG任务的结果。
+
+    Args:
+        datas (list): 数据。
+
+    Returns:
+        dict: 格式化后的数据。
+    """
     fmt_datas = {}
     cnt = 0
     for i, jterm in enumerate(datas):
@@ -134,7 +195,7 @@ def format_tvg(datas):
         gcap = jterm["generated_cap"]
         qid = int(jterm["id"])
         timestamps = format_tvg_output(gcap)
-        if len(timestamps) == 0:
+        if len(timestamps) == 0: # 输出 caption 未提取到时间戳
             cnt += 1
             print(vid, query + "\n", gcap, "\n")
         fmt_datas[qid] = {"timestamp": timestamps, "query": query, "vid": vid}
@@ -143,6 +204,15 @@ def format_tvg(datas):
 
 
 def format_vhd(datas, gts):
+    """格式化VHD任务的结果。
+
+    Args:
+        datas (list): 数据。
+        gts (list): 真实值。
+
+    Returns:
+        list: 格式化后的数据。
+    """
     vid2gts = {}
     for jterm in gts:
         vid2gts[jterm["image_id"]] = jterm
@@ -173,6 +243,22 @@ def format_vhd(datas, gts):
 
 
 def generate(chat, gr_videos, user_messages, num_beams, temperature, top_p, n_frms, chat_states=None, img_lists=None):
+    """生成字幕。
+
+    Args:
+        chat (Chat): Chat对象。
+        gr_videos (list): 视频列表。
+        user_messages (list): 用户消息列表。
+        num_beams (int): beam search的数量。
+        temperature (float): 温度参数。
+        top_p (float): top-p采样参数。
+        n_frms (int): 帧数。
+        chat_states (list, optional): 聊天状态。默认为None。
+        img_lists (list, optional): 图片列表。默认为None。
+
+    Returns:
+        tuple: 生成的字幕、聊天状态、图片列表。
+    """
     N = len(user_messages)
     if chat_states is None:
         chat_states = []
@@ -233,11 +319,11 @@ def main(args):
     logging.info(message)
 
     model_cls = registry.get_model_class(model_config.arch)
-    model = model_cls.from_config(model_config).to('cuda:{}'.format(args.gpu_id))
+    model = model_cls.from_config(model_config).to(device)
     model.eval()
     vis_processor_cfg = cfg.datasets_cfg.webvid.vis_processor.train
     vis_processor = registry.get_processor_class(vis_processor_cfg.name).from_config(vis_processor_cfg)
-    chat = Chat(model, vis_processor, device='cuda:{}'.format(args.gpu_id))
+    chat = Chat(model, vis_processor, device=device)
     print('Initialization Finished')
 
     # load data
@@ -340,7 +426,7 @@ def main(args):
                     "prompt": chat_state.get_prompt()
                 })
 
-            if i < 5:
+            if i < 5: # 前 5 个 epoch 输出 prompt 和 结果
                 print(chat_state.get_prompt())
                 print(results[-1]["generated_cap"])
                 print('*' * 50)
@@ -390,7 +476,7 @@ if __name__ == "__main__":
     parser.add_argument('--top_p', type=float, default=0.8)
     parser.add_argument('--temperature', type=float, default=1)
     parser.add_argument('--batch_size', type=int, default=16)
-    parser.add_argument('--gpu_id', default='0')
+    parser.add_argument('--gpu_id', type=int, default=0)
     parser.add_argument('--timestamp', action='store_true', help='input the gt/predicted timestamps to the model')
     parser.add_argument('--timestamp_file', type=str, default='', help='the predcited timestamps file')
     parser.add_argument('--debug', action='store_true', help='the debug mode will only use 10 data samples')

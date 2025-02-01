@@ -4,6 +4,7 @@ import time
 import sys
 import argparse
 import pdb
+import csv
 
 def read_json(path):
     with open(path, "r") as fin:
@@ -37,6 +38,7 @@ if __name__ == "__main__":
     parser.add_argument("--pred_file", type=str, default="/home/yaolinli/code/Ask-Anything/video_chat/output/eval_7b_tvg_charades/fmt_charades_test_f8_result.json")
     parser.add_argument('--gt_file', type=str, default='/home/yaolinli/dataset/Charades/charades_annotation/test.caption_coco_format.json')
     parser.add_argument('--sample', action='store_true', default=False)
+    parser.add_argument('--detail_file', type=str, default=None, help='输出详细评估结果的文件路径')
     args = parser.parse_args()
     '''
     {
@@ -64,10 +66,33 @@ if __name__ == "__main__":
     print(f"# pred video timestamps {len(pred_timestamps)}; # gt video timestamps {len(gt_timestamps)}")
     assert len(gt_timestamps) == len(pred_timestamps)
     Result = {0.3:0, 0.5:0, 0.7:0}
-    for c_iou in [0.3, 0.5, 0.7]:
-        for key in gt_timestamps.keys():
-            if len(pred_timestamps[key]) < 1:
-                continue
-            if(iou(gt_timestamps[key], pred_timestamps[key][0]) >= c_iou):
+    detailed_results = []
+
+    for key in gt_timestamps.keys():
+        iou_val = 0.0
+        if len(pred_timestamps[key]) >= 1:
+            iou_val = iou(gt_timestamps[key], pred_timestamps[key][0])
+        for c_iou in Result.keys():
+            if(iou_val >= c_iou):
                 Result[c_iou] = Result[c_iou] + 1
-    print("IOU 0.3: {0}\nIOU 0.5: {1}\nIOU 0.7: {2}".format(Result[0.3]*100/num, Result[0.5]*100/num, Result[0.7]*100/num))
+        # 生成并保存到 CSV
+        if args.detail_file:
+            id = key
+            vid = submission[str(key)]["vid"]
+            query = submission[str(key)]["query"]
+            gt_s, gt_e = gt_timestamps[key]
+            out_s, out_e = pred_timestamps[key][0] if len(pred_timestamps[key])>=1 else [None, None] # 预测时间戳，没有则为空
+            detailed_results.append([
+                id, vid, query, iou_val, gt_s, gt_e, out_s, out_e
+            ])
+
+    # 输出召回率
+    for key in Result.keys():
+        print(f"IOU {key}: {Result[key]*100/num}")
+
+    # 保存详细结果
+    if args.detail_file:
+        with open(args.detail_file, 'w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['id', 'vid','query','iou','gt_s','gt_e','output_s','output_e'])
+            writer.writerows(detailed_results)

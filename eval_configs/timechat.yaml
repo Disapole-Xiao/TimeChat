@@ -5,7 +5,7 @@ model:
   freeze_qformer: True
   max_txt_len: 2048
   end_sym: "</s>"
-  low_resource: False
+  low_resource: True
 
   frozen_llama_proj: True
   frozen_video_Qformer: True
