@@ -27,3 +27,7 @@ share/python-wheels/
 *.egg
 MANIFEST
 .idea
+
+# data and checkpoints
+data/
+ckpt/
