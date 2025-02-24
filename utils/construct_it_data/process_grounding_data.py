@@ -87,10 +87,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', default='anet')  # anet
     parser.add_argument('--anno_path',
-                        default='/home/yaolinli/dataset/ActivityNet_asr_denseCap/')  # /home/yaolinli/dataset/ActivityNet_asr_denseCap
+                        default='/data5/xzh/TimeChat/data/TimeIT/data/dense_video_captioning/anet/')  # /home/yaolinli/dataset/ActivityNet_asr_denseCap
     parser.add_argument('--video_path',
-                        default='ActivityNet_asr_denseCap/anet_6fps_224')  # ActivityNet_asr_denseCap/anet_6fps_224
-    parser.add_argument('--outpath', default='./')
+                        default='ActivityNet/anet_6fps_224')  # ActivityNet_asr_denseCap/anet_6fps_224
+    parser.add_argument('--outpath', default='/data5/xzh/TimeChat/data/TimeIT/data/temporal_video_grounding/activitynet/')
     parser.add_argument('--ratio', type=float, default=-1)
     args = parser.parse_args()
     '''output data example:
@@ -106,7 +106,7 @@ if __name__ == "__main__":
     '''
     prompts = list(get_prompt("prompts/video_grounding_prompts.json").values())
 
-    video_root = "/home/yaolinli/dataset"
+    video_root = "/data5/xzh/TimeChat/data/"
     base_video_path = args.video_path
     dataset = args.dataset
 
@@ -264,3 +264,4 @@ if __name__ == "__main__":
         out_name = "instruct_tvg_{}k_{}.json".format(round(len(it_data) / 1000, 1), args.dataset)
         Path(args.outpath).mkdir(parents=True, exist_ok=True)
         write_json(it_data, os.path.join(args.outpath, out_name))
+        print(f"==> Write to {os.path.join(args.outpath, out_name)}")

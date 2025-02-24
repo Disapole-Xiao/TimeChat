@@ -31,3 +31,5 @@ MANIFEST
 # data and checkpoints
 data/
 ckpt/
+wandb/
+nohup.out
