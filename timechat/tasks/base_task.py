@@ -58,7 +58,7 @@ class BaseTask:
 
             dataset['train'].name = name
             if 'sample_ratio' in dataset_config:
-                dataset['train'].sample_ratio = dataset_config.sample_ratio
+                dataset['train'].sample_ratio = dataset_config.sample_ratio # TODO
 
             datasets[name] = dataset
 
@@ -219,18 +219,20 @@ class BaseTask:
                 loss = self.train_step(model=model, samples=samples)
 
             # after_train_step()
-            if use_amp:
-                scaler.scale(loss).backward()
-            else:
-                loss.backward()
+            # if use_amp:
+            #     scaler.scale(loss).backward()
+            # else:
+            #     loss.backward()
+            loss.backward()
 
             # update gradients every accum_grad_iters iterations
             if (i + 1) % accum_grad_iters == 0:
-                if use_amp:
-                    scaler.step(optimizer)
-                    scaler.update()                     
-                else:    
-                    optimizer.step()
+            #     if use_amp:
+            #         scaler.step(optimizer)
+            #         scaler.update()                     
+            #     else:    
+            #         optimizer.step()
+                optimizer.step()
                 optimizer.zero_grad()
 
             metric_logger.update(loss=loss.item())

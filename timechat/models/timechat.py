@@ -80,6 +80,7 @@ class TimeChat(Blip2Base):
             lora_inference_mode=True,
             window_size=0,
             stride=0,
+            max_time_token=None
     ):
         super().__init__()
 
@@ -137,6 +138,13 @@ class TimeChat(Blip2Base):
 
         self.IMAGE_PATCH_TOKEN_ID = self.llama_tokenizer.get_vocab()[DEFAULT_IMAGE_PATCH_TOKEN]
 
+        if max_time_token:
+            # 添加新的特殊标记
+            new_tokens = ["<time>", "</time>"] + [f"<{i}>" for i in range(max_time_token+1)]
+            self.llama_tokenizer.add_tokens(new_tokens)
+            num_new_tokens = len(new_tokens)
+            print(f"add new tokens: {new_tokens}")
+
         logging.info('Loading LLAMA Model')
         if self.low_resource:
             self.llama_model = LlamaForCausalLM.from_pretrained(
@@ -162,6 +170,14 @@ class TimeChat(Blip2Base):
                     llama_model,
                     torch_dtype=torch.bfloat16,
                 )
+                
+        if max_time_token:
+            # 重新调整模型的词汇表大小
+            embeddings = self.llama_model.resize_token_embeddings(len(self.llama_tokenizer))
+            # 使用正态分布初始化新token的嵌入
+            with torch.no_grad():
+                std = embeddings.weight[:-len(new_tokens)].std().item()
+                embeddings.weight[-len(new_tokens):].normal_(mean=0.0, std=std)
 
         if use_grad_checkpoint:
             logging.info("use gradient checkpointing for LLAMA")
@@ -181,9 +197,18 @@ class TimeChat(Blip2Base):
                 r=32,
                 lora_alpha=lora_alpha,
                 lora_dropout=0.1,
-                target_modules=['q_proj', 'k_proj', 'v_proj', 'o_proj']
+                target_modules=['q_proj', 'k_proj', 'v_proj', 'o_proj'],
+                modules_to_save=["embed_tokens"] if max_time_token else None # 修改了 tokenizer 的词汇表大小，所以需要保存 embed_tokens
             )
             self.llama_model = get_peft_model(self.llama_model, config)
+        
+        # embed_tokens_weight = self.llama_model.modules_to_save if self.lora else self.llama_model.model.embed_tokens.weight
+        # # 冻结所有原有token的嵌入
+        # embed_tokens_weight[:-num_new_tokens].requires_grad_(False)
+        # # 只设置新添加的token嵌入为可训练
+        # embed_tokens_weight[-num_new_tokens:].requires_grad_(True)
+        
+        if self.lora:
             self.llama_model.print_trainable_parameters()
 
         logging.info('Loading LLAMA proj')
@@ -549,6 +574,7 @@ class TimeChat(Blip2Base):
         qformer_text_input = cfg.get("qformer_text_input", False)
         window_size = cfg.get("window_size", 0)
         stride = cfg.get("stride", 0)
+        max_time_token = cfg.get("max_time_token", None)
         model = cls(
             vit_model=vit_model,
             q_former_model=q_former_model,
@@ -578,7 +604,8 @@ class TimeChat(Blip2Base):
             qformer_text_input=qformer_text_input,
             lora_inference_mode=lora_inference_mode,
             window_size=window_size,
-            stride=stride
+            stride=stride,
+            max_time_token=max_time_token
         )
 
         ckpt_path = cfg.get("ckpt", "")  # load weights of MiniGPT-4
