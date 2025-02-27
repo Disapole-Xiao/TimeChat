@@ -14,7 +14,10 @@ from pathlib import Path
 
 import torch
 import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data import DataLoader, DistributedSampler
 import webdataset as wds
+
 from timechat.common.dist_utils import (
     download_cached_file,
     get_rank,
@@ -30,8 +33,6 @@ from timechat.datasets.datasets.dataloader_utils import (
     MultiIterLoader,
     PrefetchLoader,
 )
-from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.utils.data import DataLoader, DistributedSampler
 
 
 @registry.register_runner("runner_base")

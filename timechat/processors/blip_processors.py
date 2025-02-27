@@ -7,12 +7,12 @@
 
 import re
 
-from timechat.common.registry import registry
-from timechat.processors.base_processor import BaseProcessor
-from timechat.processors.randaugment import RandomAugment
 from omegaconf import OmegaConf
 from torchvision import transforms
 from torchvision.transforms.functional import InterpolationMode
+
+from timechat.common.registry import registry
+from timechat.processors.base_processor import BaseProcessor
 
 
 class BlipImageBaseProcessor(BaseProcessor):

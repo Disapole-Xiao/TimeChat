@@ -9,16 +9,10 @@ import torch.nn as nn
 from timechat.common.registry import registry
 from timechat.models.blip2 import Blip2Base, disabled_train
 from timechat.models.modeling_llama import LlamaForCausalLM
-# from timechat.models.Qformer import BertEncoder
 from transformers import LlamaTokenizer, BertConfig
-# from transformers.models.bert.modeling_bert import BertEncoder
 import einops
 import copy
 from timechat.models.Qformer import BertConfig, BertLMHeadModel
-
-
-# from flamingo_pytorch import PerceiverResampler
-
 
 @registry.register_model("timechat")
 class TimeChat(Blip2Base):
@@ -608,7 +602,7 @@ class TimeChat(Blip2Base):
             max_time_token=max_time_token
         )
 
-        ckpt_path = cfg.get("ckpt", "")  # load weights of MiniGPT-4
+        ckpt_path = cfg.get("ckpt", "")
         if ckpt_path:
             print("Load first Checkpoint: {}".format(ckpt_path))
             ckpt = torch.load(ckpt_path, map_location="cpu")

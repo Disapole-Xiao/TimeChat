@@ -11,7 +11,6 @@ import sys
 from omegaconf import OmegaConf
 
 from timechat.common.registry import registry
-
 from timechat.datasets.builders import *
 from timechat.models import *
 from timechat.processors import *

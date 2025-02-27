@@ -5,18 +5,19 @@
  For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
 """
 
+import random as rnd
+
 import torch
-from timechat.common.registry import registry
 from decord import VideoReader
 import decord
-import numpy as np
-from timechat.processors import transforms_video
-from timechat.processors.base_processor import BaseProcessor
-from timechat.processors.randaugment import VideoRandomAugment
-from timechat.processors import functional_video as F
 from omegaconf import OmegaConf
 from torchvision import transforms
-import random as rnd
+import numpy as np
+
+from timechat.common.registry import registry
+from timechat.processors import transforms_video
+from timechat.processors.base_processor import BaseProcessor
+from timechat.processors import functional_video as F
 
 
 MAX_INT = registry.get("MAX_INT")

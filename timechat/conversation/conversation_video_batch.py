@@ -2,21 +2,15 @@
 Conversation prompt template of TimeChat.
 Adapted from: https://github.com/Vision-CAIR/MiniGPT-4/blob/main/minigpt4/conversation/conversation.py 
 """
-import argparse
-import time
-from PIL import Image
-import sys
-import os
-import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM, LlamaTokenizer
-from transformers import StoppingCriteria, StoppingCriteriaList
-
 import dataclasses
 from enum import auto, Enum
-from typing import List, Tuple, Any
-import os
-from timechat.common.registry import registry
-from timechat.processors.video_processor import ToTHWC, ToUint8, load_video
+from typing import List, Any
+
+from PIL import Image
+import torch
+from transformers import StoppingCriteria, StoppingCriteriaList
+
+from timechat.processors.video_processor import load_video
 from timechat.processors import Blip2ImageEvalProcessor
 
 

@@ -1,23 +1,18 @@
 import math
 import os
-from timechat.datasets.datasets.base_dataset import BaseDataset
-from timechat.datasets.datasets.caption_datasets import CaptionDataset
-import pandas as pd
-import decord
-from decord import VideoReader
 import random
-import torch
-from torch.utils.data.dataloader import default_collate
-from PIL import Image
-from typing import Dict, Optional, Sequence
-import transformers
+import copy
 import pathlib
 import json
-from transformers import AutoTokenizer, AutoModelForCausalLM, LlamaTokenizer
-import copy
-from timechat.processors import transforms_video, AlproVideoTrainProcessor
-from torchvision import transforms
-from timechat.processors.video_processor import ToTHWC, ToUint8, load_video
+from typing import Dict, Sequence
+
+import torch
+import transformers
+from transformers import LlamaTokenizer
+
+from timechat.datasets.datasets.base_dataset import BaseDataset
+from timechat.processors import AlproVideoTrainProcessor
+from timechat.processors.video_processor import load_video
 from timechat.conversation.conversation_video import Conversation, SeparatorStyle
 
 DEFAULT_IMAGE_PATCH_TOKEN = '<ImageHere>'

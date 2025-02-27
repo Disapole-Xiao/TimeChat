@@ -7,9 +7,11 @@
 
 import logging
 import os
+
 import wandb
 import torch
 import torch.distributed as dist
+
 from timechat.common.dist_utils import get_rank, get_world_size, is_main_process, is_dist_avail_and_initialized
 from timechat.common.logger import MetricLogger, SmoothedValue
 from timechat.common.registry import registry

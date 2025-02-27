@@ -7,9 +7,11 @@
 
 import time
 import random
+
 import torch
-from timechat.datasets.data_utils import move_to_cuda
 from torch.utils.data import DataLoader
+
+from timechat.datasets.data_utils import move_to_cuda
 
 
 class MultiIterLoader:
