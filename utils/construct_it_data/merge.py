@@ -7,12 +7,19 @@ def read_json(path):
         data = json.load(fin)
     return data
 
+random.seed(33)
 
 file_to_merge = [
-    'data/tvg/activitynet_10.json',
-    'data/tvg/charades_10.json',
-    'data/tvg/didemo_10.json'
+    'data/tvg/activitynet_1000.json',
+    'data/tvg/charades_1000.json',
+    'data/tvg/didemo_1000.json'
 ]
+
+# file_to_merge = [
+#     'data/token600/activitynet_1000_token600.json',
+#     'data/token600/charades_1000_token600.json',
+#     'data/token600/didemo_1000_token600.json'
+# ]
 
 merge_data = []
 for fi, fpath in enumerate(file_to_merge):
@@ -24,6 +31,8 @@ for fi, fpath in enumerate(file_to_merge):
 random.shuffle(merge_data)
 
 out_path = "data/tvg/instruct_time-sensitive_{}.json".format(round(len(merge_data)), 1)
+# out_path = "data/token600/instruct_time-sensitive_{}_token600.json".format(round(len(merge_data)), 1)
+
 print("save merge data at {}".format(out_path))
 with open(out_path, "w") as fout:
     json.dump(merge_data, fout)

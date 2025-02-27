@@ -22,17 +22,17 @@ cfg = {
     'charades': {
         'anno_path': 'data/TimeIT/data/temporal_video_grounding/charades/instruct_tvg_12.4k_charades.json',
         # 'duration_file': 'data/Charades/video_durations.csv',
-        'num_sample': 10
+        'num_sample': 1000
     },
     'didemo': {
         'anno_path': 'data/TimeIT/data/temporal_video_grounding/didemo/instruct_tvg_33.0k_didemo.json',
         # 'duration_file': 'data/DiDeMo/video_durations.json',
-        'num_sample': 10
+        'num_sample': 1000
     },
     'activitynet': {
         'anno_path': 'data/TimeIT/data/temporal_video_grounding/activitynet/instruct_tvg_33.8k_anet.json',
         # 'duration_file': 'data/ActivityNet/video_durations.json',
-        'num_sample': 10
+        'num_sample': 1000
     }
 }
 
