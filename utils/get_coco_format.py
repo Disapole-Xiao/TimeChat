@@ -1,10 +1,9 @@
+''' 原始数据集 -> coco 格式 '''
+
 import json
 import argparse
 import os
-from copy import deepcopy
-import pdb
 import numpy as np
-import random
 from pathlib import Path
 from tqdm import tqdm
 from decord import VideoReader
@@ -32,9 +31,8 @@ def pass_video_check(video_path):
 # read json files
 def read_json(path):
     with open(path, "r") as fin:
-        datas = json.load(fin)
-        annos = datas["annotations"]
-    return annos
+        data = json.load(fin)
+    return data
 
 
 def read_jsonl(path):
@@ -54,21 +52,25 @@ def write_json(data, path):
 
 def process_charades_tvg(anno_path, video_path):
     '''output data example:
-    {
-        "annotations": [
+    ```
         {
-            "image_id": "3MSZA.mp4",
-            "caption": "person turn a light on.",
-            "timestamp": [24.3, 30.4],
-        },
-        ...
-        ]
-    }
+            "annotations": [
+            {
+                "image_id": "3MSZA.mp4",
+                "caption": "person turn a light on.",
+                "timestamp": [24.3, 30.4],
+                "duration": # new
+            },
+            ...
+            ]
+        }
+    ```
     '''
+    duration_map = read_json("data/Charades/video_durations.json")
     data = []
     with open(anno_path, "r") as fin:
         lines = fin.readlines()
-        for i, line in enumerate(lines):
+        for i, line in enumerate(tqdm(lines)):
             # e.g. AO8RW 0.0 6.9##a person is putting a book on a shelf.
             line = line.strip("\n")
             cap = line.split("##")[-1]
@@ -80,34 +82,61 @@ def process_charades_tvg(anno_path, video_path):
                 continue
             start_time = float(terms[1])
             end_time = float(terms[2])
-            data.append({"image_id": vid, "caption": cap, "timestamp": [start_time, end_time], "id": i})
+            duration = duration_map.get(vid, None)
+            if duration is None: continue
+            data.append({"image_id": vid, "caption": cap, "timestamp": [start_time, end_time], "duration":duration, "id": i})
     return data
 
-
-def process_anet_dvc(annos, video_path):
-    '''output data example:
-        {
-            "annotations": [
-            {
-                "image_id": "3MSZA.mp4",
-                "duration": 206.86,
-                "segments": [[47, 60], [67, 89], [91, 98], [99, 137], [153, 162], [163, 185]],
-                "caption": "pick the ends off the verdalago. ...
-            },
-            ...
-            ]
-        }
-    '''
+def process_anet_tvg(annos, video_path):
     new_annos = []
     idx = 0
     for k, v in tqdm(annos.items()):
         vid = f'{k}.mp4'
         if not pass_video_check(os.path.join(video_path, vid)):
             continue
-        new_annos.append({"image_id": vid, "caption": ''.join(v['sentences']), "segments": v['timestamps'],
-                          "duration": v['duration'], "id": idx})
-        idx += 1
+        for timestamp, sentence in zip(v['timestamps'], v['sentences']):
+            new_annos.append({"image_id": vid, "caption": sentence, "timestamp": timestamp, "duration":v["duration"], "id": idx})
+            idx += 1
     return new_annos
+
+def process_didemo_tvg(annos, video_path):
+    '''input
+    {
+        "num_segments": 6, 
+        "description": "a man in a green shirt makes their way through the crowd", 
+        "dl_link": "https://www.flickr.com/video_download.gne?id=2440974516", 
+        "times": [[3, 3], [3, 3], [3, 4], [0, 0]], 
+        "video": "68976835@N00_2440974516_6cdd3be0b2.avi", "annotation_id": 13775
+    },
+    '''
+    new_annos = []
+    # TODO 
+
+
+# def process_anet_dvc(annos, video_path):
+#     '''output data example:
+#         {
+#             "annotations": [
+#             {
+#                 "image_id": "3MSZA.mp4",
+#                 "duration": 206.86,
+#                 "segments": [[47, 60], [67, 89], [91, 98], [99, 137], [153, 162], [163, 185]],
+#                 "caption": "pick the ends off the verdalago. ...
+#             },
+#             ...
+#             ]
+#         }
+#     '''
+#     new_annos = []
+#     idx = 0
+#     for k, v in tqdm(annos.items()):
+#         vid = f'{k}.mp4'
+#         if not pass_video_check(os.path.join(video_path, vid)):
+#             continue
+#         new_annos.append({"image_id": vid, "caption": ''.join(v['sentences']), "segments": v['timestamps'],
+#                           "duration": v['duration'], "id": idx})
+#         idx += 1
+#     return new_annos
 
 
 def filter_sent(sent):
@@ -128,6 +157,8 @@ if __name__ == "__main__":
 
     for split in ["test", "val", "train"]:
         if args.dataset == "charades":
+            if split == "val":
+                continue
             filename = f"charades_sta_{split}.txt"
             annos = process_charades_tvg(os.path.join(args.anno_path, filename), args.video_path)
             data = {}
@@ -136,14 +167,19 @@ if __name__ == "__main__":
             mapping = {'train': 'train.json', 'val': 'val_1.json', 'test': 'val_2.json'}
             filename = mapping[split]
             annos = json.load(open(os.path.join(args.anno_path, filename), "r"))
-            annos = process_anet_dvc(annos, args.video_path)
+            annos = process_anet_tvg(annos, args.video_path)
+            data = {}
+            data["annotations"] = annos
+        elif args.dataset == "didemo":
+            filename = f"{split}_data.json"
+            annos = read_json(os.path.join(args.anno_path, filename))
             data = {}
             data["annotations"] = annos
         else:
             print("Do not support this dataset!")
             exit(0)
 
-        print(f"==> {args.dataset} dataset  \t# examples num: {len(annos)}")
+        print(f"==> {args.dataset} dataset {split} \t# examples num: {len(annos)}")
         out_name = "{}.caption_coco_format.json".format(split)
         Path(args.outpath).mkdir(parents=True, exist_ok=True)
         write_json(data, os.path.join(args.outpath, out_name))

@@ -29,8 +29,14 @@ MANIFEST
 .idea
 
 # data and checkpoints
-.vscode/
 data/
 ckpt/
+
+# logs
 wandb/
 nohup.out
+*.log
+log/
+
+# local
+.vscode/

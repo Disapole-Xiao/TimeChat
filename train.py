@@ -7,7 +7,6 @@ Adapted from salesforce@LAVIS and Vision-CAIR@MiniGPT-4. Below is the original c
 """
 
 import argparse
-import os
 import random
 import wandb
 import numpy as np

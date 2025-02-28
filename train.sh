@@ -2,5 +2,6 @@
 PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32
 CUDA_EMPTY_CACHE_PERCENT=80
 CUDA_VISIBLE_DEVICES=0
-python train.py --cfg-path train_configs/tvg_token.yaml
-python train.py --cfg-path train_configs/tvg.yaml
+# python train.py --cfg-path train_configs/tvg_token.yaml
+# python train.py --cfg-path train_configs/tvg.yaml
+python train.py --cfg-path train_configs/test.yaml

@@ -1,78 +1,52 @@
-import copy
-import os
-import torch
-import argparse
-from transformers import StoppingCriteria, StoppingCriteriaList
-from math import ceil
-from PIL import Image
-import numpy as np
-import torch.backends.cudnn as cudnn
-from timechat.common.logger import setup_logger
-from timechat.common.config import Config
-from timechat.common.dist_utils import get_rank
-from timechat.common.registry import registry
-from timechat.conversation.conversation_video_batch import Chat, Conversation, default_conversation, SeparatorStyle, \
-    conv_llava_llama_2
-import decord
-
-decord.bridge.set_bridge('torch')
-import logging
-from torchvision.transforms.functional import InterpolationMode
-
-from torchvision import transforms
-import pdb
 import json
 from pathlib import Path
 import time
 import datetime
-from tqdm import tqdm
+import copy
+import os
 import random
+from math import ceil
+import logging
 
-random.seed(1234)
+import torch
+import argparse
+import numpy as np
+import torch.backends.cudnn as cudnn
+from tqdm import tqdm
+
+from timechat.common.logger import setup_logger
+from timechat.common.config import Config
+from timechat.common.registry import registry
+from timechat.conversation.conversation_video_batch import Chat, default_conversation, conv_llava_llama_2
 from utils.format_dvc import format_dvc_output
 from utils.format_tvg import format_tvg_output
 from utils.format_vhd import format_vhd_output
 
-
 def read_txt(path):
-    """读取文本文件的内容。
-
-    Args:
-        path (str): 文本文件路径。
-
-    Returns:
-        str: 文本内容。
-    """
     with open(path, "r") as fin:
         data = fin.readline().strip()
     return data
 
 
 def load_data(args, anno_path, split=None):
-    """从JSON文件中加载注释数据。
-
-    Args:
-        args (Namespace): 包含配置选项的参数。
-        anno_path (str): 包含注释文件的目录路径。
-        split (str, optional): 要加载的数据集划分（例如，'train', 'val'）。默认为None。
-
-    Returns:
-        list: 注释字典的列表。
-
-    示例:
-    注意:
-        如果args.debug为True，则只返回前10个注释。
+    """从 JSON 文件中加载 coco 格式注释数据。
+    如果 `args.debug` 为 `True`，则只返回前10个注释。
 
     anno data example:
-    {"annotations":
-        [
+    ```
+        "annotations": [
             {
-                "image_id": "xHr8X2Wpmno.mp4"
-                ...
+                "image_id": "3MSZA.mp4",
+                "caption": "person turn a light on.",
+                "timestamp": [
+                    24.3,
+                    30.4
+                ],
+                "id": 0
             },
             ...
         ]
-    }
+    ```
     """
     file_path = os.path.join(anno_path, f'{split}.caption_coco_format.json')
     with open(file_path, 'r') as f:
@@ -82,46 +56,15 @@ def load_data(args, anno_path, split=None):
         data = data[:10]
     return data
 
-
-def merge_seg_caps(results):
-    """合并来自同一视频的多个生成字幕为段落。
-
-    Args:
-        results (list): 生成的字幕结果。
-
-    Returns:
-        dict: 合并后的结果。
-    """
-    merge_results = {}
-    for jterm in results:
-        vname = jterm["vname"]
-        cap = jterm["generated_cap"]
-        postfix = vname.split(".mp4")[-1]
-        start_time, end_time = float(postfix.split("_")[-2]), float(postfix.split("_")[-1])
-        vid = vname.split(".mp4")[0] + ".mp4"
-        if vid not in merge_results:
-            merge_results[vid] = []
-        merge_results[vid].append({"timestamp": [start_time, end_time], "caption": cap})
-    return merge_results
-
-
 def save_result(args, output_dir, results, split_name='test', format=False):
     """保存结果到文件。
 
     Args:
-        args (Namespace): 参数。
-        output_dir (str): 输出目录。
-        results (list): 结果数据。
-        split_name (str, optional): 数据集划分名称。默认为'test'。
-        format (bool, optional): 是否格式化。默认为False。
+        results: 数据
+        format: 是否添加 `fmt` 前缀
     """
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     file_name = f'{args.dataset}_{split_name}_f{args.num_frames}_result.json'
-    if args.timestamp:
-        if args.timestamp_file != '':
-            file_name = f'{args.dataset}_{split_name}_f{args.num_frames}_result_with_pred_timestamp.json'
-        else:
-            file_name = f'{args.dataset}_{split_name}_f{args.num_frames}_result_with_gt_timestamp.json'
     if args.debug:
         file_name = 'debug_' + file_name
     if format:
@@ -131,34 +74,7 @@ def save_result(args, output_dir, results, split_name='test', format=False):
     return
 
 
-def get_timestamp_from_file(timestamp_file):
-    """从文件中获取时间戳。
-
-    Args:
-        timestamp_file (str): 时间戳文件路径。
-
-    Returns:
-        dict: 时间戳数据。
-    """
-    timestamp = {}
-    with open(timestamp_file, 'r') as f:
-        data = json.load(f)
-        for vid, vlist in data.items():
-            timestamp[vid] = []
-            for vterm in vlist:
-                timestamp[vid].append(vterm["timestamp"])
-    return timestamp
-
-
 def format_dvc(datas):
-    """格式化DVC任务的结果。
-
-    Args:
-        datas (list): 数据。
-
-    Returns:
-        dict: 格式化后的数据。
-    """
     fmt_datas = {}
     timestamp_count = []
     cnt = 0
@@ -178,41 +94,40 @@ def format_dvc(datas):
     return fmt_datas
 
 
-def format_tvg(datas):
-    """格式化TVG任务的结果。
-
-    Args:
-        datas (list): 数据。
-
-    Returns:
-        dict: 格式化后的数据。
+def format_tvg(datas, max_token=None):
+    """提取时间戳。对于 time_token，转化为时间戳
+    output:
+    ```
+        "4": {
+            "vname": "AMT7R.mp4"
+            "query": "a person is putting a picture onto the wall.",
+            "timestamp": [
+                [
+                    0.0,
+                    29.7
+                ]
+            ],
+        },
+    ```
     """
     fmt_datas = {}
     cnt = 0
-    for i, jterm in enumerate(datas):
-        vid = jterm["vname"]
+    for jterm in datas:
+        vname = jterm["vname"]
         query = jterm["query"]
         gcap = jterm["generated_cap"]
-        qid = int(jterm["id"])
-        timestamps = format_tvg_output(gcap)
-        if len(timestamps) == 0: # 输出 caption 未提取到时间戳
+        anno_id = int(jterm["id"])
+        duration = jterm["duration"]
+        timestamps = format_tvg_output(gcap, args.max_token, duration)
+        if len(timestamps) == 0: # 未提取到时间戳
             cnt += 1
-            print(vid, query + "\n", gcap, "\n")
-        fmt_datas[qid] = {"timestamp": timestamps, "query": query, "vid": vid}
+            print(f'Fail to extract timestamps: {vname}, {query}\n\t{gcap}\n')
+        fmt_datas[anno_id] = {"vname": vname, "query": query, "timestamp": timestamps, "duration": duration}
     print(f'parse failed number: {cnt}')
     return fmt_datas
 
 
 def format_vhd(datas, gts):
-    """格式化VHD任务的结果。
-
-    Args:
-        datas (list): 数据。
-        gts (list): 真实值。
-
-    Returns:
-        list: 格式化后的数据。
-    """
     vid2gts = {}
     for jterm in gts:
         vid2gts[jterm["image_id"]] = jterm
@@ -243,21 +158,10 @@ def format_vhd(datas, gts):
 
 
 def generate(chat, gr_videos, user_messages, num_beams, temperature, top_p, n_frms, chat_states=None, img_lists=None):
-    """生成字幕。
-
-    Args:
-        chat (Chat): Chat对象。
-        gr_videos (list): 视频列表。
-        user_messages (list): 用户消息列表。
-        num_beams (int): beam search的数量。
-        temperature (float): 温度参数。
-        top_p (float): top-p采样参数。
-        n_frms (int): 帧数。
-        chat_states (list, optional): 聊天状态。默认为None。
-        img_lists (list, optional): 图片列表。默认为None。
+    """模型生成结果
 
     Returns:
-        tuple: 生成的字幕、聊天状态、图片列表。
+        tuple: `(responses, chat_states, img_lists)`
     """
     N = len(user_messages)
     if chat_states is None:
@@ -271,7 +175,7 @@ def generate(chat, gr_videos, user_messages, num_beams, temperature, top_p, n_fr
             chat_states.append(chat_state)
     if img_lists is None:
         img_lists = [[] for i in range(N)]
-        llm_message = chat.upload_video_without_audio(gr_videos, chat_states, img_lists, n_frms=n_frms)
+        chat.upload_video_without_audio(gr_videos, chat_states, img_lists, n_frms=n_frms)
 
     for user_message, chat_state in zip(user_messages, chat_states):
         chat.ask(user_message, chat_state)
@@ -304,7 +208,7 @@ def main(args):
     torch.manual_seed(seed)
     cudnn.benchmark = False
     cudnn.deterministic = True
-
+    
     cfg = Config(args)
     model_config = cfg.model_cfg
     model_config.device_8bit = args.gpu_id
@@ -318,124 +222,100 @@ def main(args):
     message = '\n' + '\n'.join([f'{k:<25}: {v}' for k, v in vars(args).items()])
     logging.info(message)
 
+    # init model
     model_cls = registry.get_model_class(model_config.arch)
     model = model_cls.from_config(model_config).to(device)
     model.eval()
-    vis_processor_cfg = cfg.datasets_cfg.webvid.vis_processor.train
+    vis_processor_cfg = cfg.datasets_cfg.time_instruct.vis_processor.eval
     vis_processor = registry.get_processor_class(vis_processor_cfg.name).from_config(vis_processor_cfg)
     chat = Chat(model, vis_processor, device=device)
     print('Initialization Finished')
 
+    # get anno/video path
+    if args.dataset == 'charades':
+        anno_path = f'data/TimeIT/data/temporal_video_grounding/charades/charades_annotation/'
+        video_path = 'data/Charades/videos'
+    elif args.dataset == 'activitynet':
+        anno_path = f'data/TimeIT/data/temporal_video_grounding/activitynet/activitynet_annotation/'
+        video_path = 'data/ActivityNet/train_videos'
+    # elif args.dataset == 'didemo':
+    #     anno_path = f'data/TimeIT/data/temporal_video_grounding/didemo/didemo_annotation/'
+    #     video_path = 'data/DiDeMo/videos'
+    
+    # 如果传入了路径，直接使用
+    if args.anno_path: anno_path = args.anno_path
+    if args.video_path: video_path = args.video_path
+
+    assert anno_path is not None and video_path is not None, "The dataset is not supported, please provide the your own ann_path and video_path"
+    
     # load data
-    video_path = args.video_path
-    anno_path = args.anno_path
     anno_data = load_data(args, anno_path, split=args.split)
-    if args.timestamp_file != '':
-        pred_timestamps = get_timestamp_from_file(args.timestamp_file)
-    vids = []
-    vnames = []
-    captions = []
-    qids = []
+    vpaths = []
+    vnames = [] 
+    queries = []
+    anno_ids = []
+    vdurations = []
     if args.sample_num > 0:
         # sample part data to evaluate
-        anno_data = random.sample(anno_data, args.sample_num)
+        if (args.sample_num > len(anno_data)):
+            print(f"Sample number {args.sample_num} is larger than the total number of data {len(anno_data)}, use {len(anno_data)} data")
+        else:
+            anno_data = random.sample(anno_data, args.sample_num)
     for jterm in anno_data:
         vname = jterm["image_id"].split("/")[-1]
         vid_path = os.path.join(video_path, vname)
-        if args.timestamp:
-            duration = int(jterm["duration"])
-            if args.timestamp_file == '':  # input the gt timestamps
-                timestamp = jterm["segments"]
-            else:  # input the pred timestamps
-                timestamp = pred_timestamps[vname]
-            for (start_time, end_time) in timestamp:
-                # process anno timestamp error
-                if start_time >= end_time or end_time > duration or start_time >= duration:
-                    continue
-                vids.append(vid_path)
-                vnames.append(vname + "_" + str(start_time) + "_" + str(end_time))
-                # image_emb, _ = model.encode_img(video)
-                # img_lists.append([image_emb])
-        else:
-            vids.append(vid_path)
-            vnames.append(vname)
-            captions.append(jterm["caption"])
-            qids.append(jterm["id"])
+        vpaths.append(vid_path)
+        vnames.append(vname)
+        queries.append(jterm["caption"])
+        anno_ids.append(jterm["id"])
+        vdurations.append(jterm["duration"])
 
+    # evaluate using batch
     results = []
     bz = args.batch_size
-    # evaluate using batch
-    epoch = ceil(len(vnames) / bz)
-    for i in tqdm(range(epoch)):
+    iter = ceil(len(vnames) / bz)
+    for i in tqdm(range(iter)):
         sid = i * bz
         eid = min((i + 1) * bz, len(vnames))
         prompts = []
         # load video
-        paths = vids[sid:eid]
-        image_ids = qids[sid:eid]
+        paths = vpaths[sid:eid]
         for pi in range(len(paths)):
             final_prompt = copy.deepcopy(prompt)
-            if args.asr:
-                max_num_asr = 15  # only use max to 20 asr
-                asr_path = os.path.join(args.asr_path, vnames[pi].split('.')[0] + '.txt')
-                if not os.path.exists(asr_path):
-                    final_asr = 'None.'
-                else:
-                    with open(asr_path, 'r') as f:
-                        asrs = f.readlines()
-                    final_asr = ''
-                    stride = len(asrs) // max_num_asr
-                    stride = stride if stride > 0 else 1
-                    for idx in range(1, len(asrs), stride):
-                        asr = asrs[idx]
-                        asr = asr.strip()
-                        if not asr.endswith('.'):
-                            asr = asr + '.'
-                        asr = asr.split('\t')
-                        real_timestamp_start, real_timestamp_end, caption = float(asr[0]), float(asr[1]), asr[2]
-                        asr = f"{real_timestamp_start:.1f} - {real_timestamp_end:.1f} seconds, {caption} "
-                        final_asr += asr
-                    if final_asr == '':
-                        final_asr = 'None.'
-                final_prompt = f'Transcribed speech: {final_asr} Based on the video content and possible transcribed speech, {final_prompt}'
-                # final_prompt = f'{final_prompt} Transcribed speech: {final_asr}'
             if args.task in ["tvg", "vhd"]:
                 idx = sid + pi
-                prompts.append(final_prompt.format(args.dataset, captions[idx].strip('.')))
-            else:
+                prompts.append(final_prompt.format(args.dataset, queries[idx].strip('.')))
+            else: # dvc
                 prompts.append(final_prompt)
         outputs, chat_states, img_lists = generate(chat, paths, prompts, num_beams, temperature, top_p, n_frms)
-        if args.post_check:
+        if args.post_check: # 让模型再检查一遍生成格式
             post_check_prompt = read_txt(args.post_check_prompt_file)
             post_check_prompts = [post_check_prompt] * len(paths)
             outputs, chat_states, img_lists = generate(chat, paths, post_check_prompts, num_beams, temperature, top_p,
                                                        n_frms, chat_states, img_lists)
         for j, (output, chat_state) in enumerate(zip(outputs, chat_states)):
             if args.task in ["tvg", "vhd"]:
-                results.append({
+                result = {
+                    "id": anno_ids[sid + j],
                     "vname": vnames[sid + j],
+                    "query": queries[sid + j],
                     "generated_cap": output,
-                    "query": captions[sid + j],
-                    "id": qids[sid + j],
-                    "prompt": chat_state.get_prompt()
-                })
+                    "prompt": chat_state.get_prompt(),
+                    "duration": vdurations[sid + j]
+                }
             else:
-                results.append({
+                result = {
                     "vname": vnames[sid + j],
+                    "prompt": chat_state.get_prompt(),
                     "generated_cap": output,
-                    "prompt": chat_state.get_prompt()
-                })
-
-            if i < 5: # 前 5 个 epoch 输出 prompt 和 结果
-                print(chat_state.get_prompt())
-                print(results[-1]["generated_cap"])
+                    "duration": vdurations[sid + j]
+                }
+            results.append(result)
+            # 前 5 个 iter 输出结果
+            if i < 5: 
+                print(*[f'{k}: {v}' for k, v in result.items()], sep='\n')
                 print('*' * 50)
 
-            # with open(output_file, 'a') as f:
-            #     print(json.dumps(results[-1]), file=f, flush=True)
-
-    if args.timestamp:
-        results = merge_seg_caps(results)
     # save results
     save_result(args, args.output_dir, results, args.split)
 
@@ -443,7 +323,7 @@ def main(args):
     if args.task == "dvc":
         fmt_results = format_dvc(results)
     elif args.task == "tvg":
-        fmt_results = format_tvg(results)
+        fmt_results = format_tvg(results, args.max_token)
     elif args.task == "vhd":
         fmt_results = format_vhd(results, anno_data)
     else:
@@ -451,9 +331,9 @@ def main(args):
     # save format results
     save_result(args, args.output_dir, fmt_results, args.split, format=True)
 
+    # evaluate time
     total_time = time.time() - eval_start_time
-    # convert seconds to date
-    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+    total_time_str = str(datetime.timedelta(seconds=int(total_time))) # convert seconds to date
     print('Evaluate time {}'.format(total_time_str))
 
     with open(os.path.join(args.output_dir, "log.txt"), "a") as f:
@@ -464,32 +344,33 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--cfg_path', type=str, default='eval_configs/timechat.yaml')
-    parser.add_argument('--anno_path', type=str, default='data/YouCook2-BB/YouCook2_asr_denseCap/')
-    parser.add_argument('--video_path', type=str, default='data/YouCook2-BB/YouCook2_asr_denseCap/youcook2_6fps_224/')
-    parser.add_argument('--model_type', type=str)
-    parser.add_argument('--task',
-                        default='dvc')  # dvc for dense video captioning; tvg for temporal video grounding; vhd for video highlight detection
-    parser.add_argument('--dataset', default='youcook')
-    parser.add_argument('--output_dir', default='debug')
-    parser.add_argument('--split', default='val')
+    parser.add_argument('--model_type', choices=['llama_v2', 'vicuna'], default='llama_v2')
+    parser.add_argument('--timechat_model_path', default='ckpt/timechat/timechat_7b.pth')
     parser.add_argument('--num_frames', type=int, default=8)
     parser.add_argument('--top_p', type=float, default=0.8)
     parser.add_argument('--temperature', type=float, default=1)
-    parser.add_argument('--batch_size', type=int, default=16)
-    parser.add_argument('--gpu_id', type=int, default=0)
-    parser.add_argument('--timestamp', action='store_true', help='input the gt/predicted timestamps to the model')
-    parser.add_argument('--timestamp_file', type=str, default='', help='the predcited timestamps file')
-    parser.add_argument('--debug', action='store_true', help='the debug mode will only use 10 data samples')
-    parser.add_argument('--prompt_file', default='prompts/dvc_description.txt')
-    parser.add_argument('--timechat_model_path',
-                        default='ckpt/timechat/train_stage2_llama2_7b_time64k_valley72k_bz32_f96_epoch3_open_i_instruct_qformer_lora_bind_time_ws32_mfp96_mtl2048/20231026060/checkpoint_2.pth')
-    parser.add_argument('--sample_num', type=int, default=-1, help='fast inference by sampling N instances to evaluate')
-    parser.add_argument('--example_output', action='store_true', help='output the example results')
     parser.add_argument('--no_lora', action='store_true')
+    parser.add_argument('--batch_size', type=int, default=16)
+
+    parser.add_argument('--task', choices=['tvg', 'dvc', 'vhd'], default='tvg')
+    parser.add_argument('--dataset', default='charades', help='charades, activitynet, didemo')
+    parser.add_argument('--split', default='test')
+    parser.add_argument('--anno_path', type=str, default=None)
+    parser.add_argument('--video_path', type=str, default=None)
+    parser.add_argument('--sample_num', type=int, default=-1, help='fast inference by sampling N instances to evaluate')
+    parser.add_argument('--prompt_file', default='prompts/tvg_description.txt')
     parser.add_argument('--post_check', action='store_true', help='post check the format of generated captions')
-    parser.add_argument('--post_check_prompt_file', type=str, default='prompts/dvc_post_check.txt')
-    parser.add_argument('--asr', action='store_true')
-    parser.add_argument('--asr_path', type=str,
-                        default='data/YouCook2-BB/YouCook2_asr_denseCap/whisper_outputs_with_time/small.en.cleaned/')
+    parser.add_argument('--post_check_prompt_file', type=str, default='prompts/tvg_post_check.txt')
+
+    parser.add_argument('--gpu_id', type=int, default=0)
+    parser.add_argument('--output_dir', default='debug')
+    parser.add_argument('--debug', action='store_true', help='the debug mode will only use 10 data samples')
+    parser.add_argument('--max_token', type=int, default=None, help='最大的 time_token 号')
+
+    # parser.add_argument('--timestamp', action='store_true', help='input the gt/predicted timestamps to the model')
+    # parser.add_argument('--timestamp_file', type=str, default='', help='the predicted timestamps file')
+    # parser.add_argument('--asr', action='store_true')
+    # parser.add_argument('--asr_path', type=str, default='data/YouCook2-BB/YouCook2_asr_denseCap/whisper_outputs_with_time/small.en.cleaned/')
+
     args = parser.parse_args()
     main(args)

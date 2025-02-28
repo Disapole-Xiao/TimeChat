@@ -2,5 +2,26 @@ datasets:
   time_instruct:
     data_type: video
     build_info:
-      anno_dir: "data/instructions/instruct_time-sensitive_73k.json"
+      anno_dir: "data/TimeIT/data/time/instruct_time-sensitive_104k.json"
       videos_dir: "data/"
+    vis_processor:
+      train:
+        name: "alpro_video_train"
+        n_frms: 96
+        image_size: 224
+      eval:
+        name: "alpro_video_eval"
+        n_frms: 96
+        image_size: 224
+    text_processor:
+      train:
+        name: "blip_caption"
+      eval:
+          name: "blip_caption"
+    num_video_query_token: 32
+    tokenizer_name: "ckpt/Video-LLaMA-2-7B-Finetuned/llama-2-7b-chat-hf/"
+    model_type: "llama_v2"
+    num_frm: 96
+    sample_type: 'rand'
+    max_txt_len: 2048
+    stride: 32

@@ -1,0 +1,27 @@
+datasets:
+  didemo_instruct:
+    data_type: video
+    build_info:
+      anno_dir: "data/temporal_video_grounding/didemo/instruct_tvg_33.0k_didemo_with_duration.json"
+      videos_dir: "data/"
+    vis_processor:
+      train:
+        name: "alpro_video_train"
+        n_frms: 96
+        image_size: 224
+      eval:
+        name: "alpro_video_eval"
+        n_frms: 96
+        image_size: 224
+    text_processor:
+      train:
+        name: "blip_caption"
+      eval:
+          name: "blip_caption"
+    num_video_query_token: 32
+    tokenizer_name: "ckpt/Video-LLaMA-2-7B-Finetuned/llama-2-7b-chat-hf/"
+    model_type: "llama_v2"
+    num_frm: 96
+    sample_type: 'rand'
+    max_txt_len: 2048
+    stride: 32

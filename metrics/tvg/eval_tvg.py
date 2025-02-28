@@ -1,9 +1,22 @@
+'''根据预测结果和 GT 计算 IoU
+
+Usage:
+```
+    # default: eval all instances according to the gt_file
+    python eval_tvg.py --pred_file your_pred_file --gt_file your_gt_file 
+
+
+    # use --sample
+    # eval sampled instances according to the pred_file
+    # e.g. # gt examples:500, # pred examples:50 -> # eval examples:50
+    python eval_tvg.py --pred_file your_pred_file --gt_file your_gt_file  --sample
+```
+'''
+
 import json
 import os
 import time
-import sys
 import argparse
-import pdb
 import csv
 
 def read_json(path):
@@ -35,10 +48,10 @@ def captiondata_modify(steps):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--pred_file", type=str, default="/home/yaolinli/code/Ask-Anything/video_chat/output/eval_7b_tvg_charades/fmt_charades_test_f8_result.json")
-    parser.add_argument('--gt_file', type=str, default='/home/yaolinli/dataset/Charades/charades_annotation/test.caption_coco_format.json')
+    parser.add_argument("--pred_file", type=str, default='')
+    parser.add_argument('--gt_file', type=str, default='data/TimeIT/data/temporal_video_grounding/charades/charades_annotation/test.caption_coco_format.json')
     parser.add_argument('--sample', action='store_true', default=False)
-    parser.add_argument('--detail_file', type=str, default=None, help='输出详细评估结果的文件路径')
+    
     args = parser.parse_args()
     '''
     {
@@ -60,7 +73,7 @@ if __name__ == "__main__":
     if args.sample:
         new = {}
         for qid in pred_timestamps.keys():
-            new[qid] = gt_timestamps[qid]
+            new[qid] = gt_timestamps[int(qid)]
         gt_timestamps = new
     num = len(gt_timestamps)
     print(f"# pred video timestamps {len(pred_timestamps)}; # gt video timestamps {len(gt_timestamps)}")
@@ -76,23 +89,22 @@ if __name__ == "__main__":
             if(iou_val >= c_iou):
                 Result[c_iou] = Result[c_iou] + 1
         # 生成并保存到 CSV
-        if args.detail_file:
-            id = key
-            vid = submission[str(key)]["vid"]
-            query = submission[str(key)]["query"]
-            gt_s, gt_e = gt_timestamps[key]
-            out_s, out_e = pred_timestamps[key][0] if len(pred_timestamps[key])>=1 else [None, None] # 预测时间戳，没有则为空
-            detailed_results.append([
-                id, vid, query, iou_val, gt_s, gt_e, out_s, out_e
-            ])
+        id = key
+        vname = submission[str(key)]["vname"]
+        query = submission[str(key)]["query"]
+        duration = submission[str(key)]["duration"]
+        gt_s, gt_e = gt_timestamps[key]
+        out_s, out_e = pred_timestamps[key][0] if len(pred_timestamps[key])>=1 else [None, None] # 预测时间戳，没有则为空
+        detailed_results.append([
+            id, vname, '"'+query+'"', duration, gt_s, gt_e, out_s, out_e, iou_val
+        ])
 
     # 输出召回率
     for key in Result.keys():
         print(f"IOU {key}: {Result[key]*100/num}")
 
     # 保存详细结果
-    if args.detail_file:
-        with open(args.detail_file, 'w', newline='', encoding='utf-8') as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow(['id', 'vid','query','iou','gt_s','gt_e','output_s','output_e'])
-            writer.writerows(detailed_results)
+    with open(os.path.join(os.path.dirname(args.pred_file), 'detail.csv'), 'w', newline='', encoding='utf-8') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(['id','vname','query','duration','gt_s','gt_e','pred_s','pred_e','iou'])
+        writer.writerows(detailed_results)

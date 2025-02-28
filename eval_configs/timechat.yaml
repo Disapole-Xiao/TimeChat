@@ -5,7 +5,7 @@ model:
   freeze_qformer: True
   max_txt_len: 2048
   end_sym: "</s>"
-  low_resource: True
+  low_resource: False
 
   frozen_llama_proj: True
   frozen_video_Qformer: True
@@ -27,14 +27,14 @@ model:
   stride: 32
 
 datasets:
-  webvid:
+  time_instruct:
     vis_processor:
-      train:
+      eval:
         name: "alpro_video_eval"
         n_frms: 96
         image_size: 224
     text_processor:
-      train:
+      eval:
         name: "blip_caption"
     num_video_query_token: 32
     tokenizer_name: "ckpt/Video-LLaMA-2-7B-Finetuned/llama-2-7b-chat-hf/"

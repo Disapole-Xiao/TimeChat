@@ -1,32 +1,11 @@
-import json
-import argparse
-import os
 import re
-from copy import deepcopy
-import pdb
-import numpy as np
-from pathlib import Path
 
-# read json files
-def read_json(path):
-    with open(path, "r") as fin:
-        datas = json.load(fin)
-    return datas
-
-
-def write_json(path, data):
-    with open(path, "w") as fout:
-        json.dump(data, fout)
-    print("The format file has been saved at:{}".format(path))
-    return
-
-
-def extract_time(paragraph):
+def extract_time(gcap):
     prompt = 'A specific example is : 20.8 - 30.0 seconds'.lower()
-    paragraph = paragraph.lower()
-    paragraph.replace(prompt, '')
+    gcap = gcap.lower()
+    gcap.replace(prompt, '')
     # Split text into sentences based on common delimiters
-    sentences = re.split(r'[!?\n]', paragraph)
+    sentences = re.split(r'[!?\n]', gcap)
     
     # Keywords that might indicate the presence of time information
     keywords = ["starts", "ends", "happens in", "start time", "end time", "start", "end", "happen"]
@@ -44,7 +23,7 @@ def extract_time(paragraph):
     ]
 
     for time_pattern in patterns:
-        time_matches = re.findall(time_pattern, paragraph)
+        time_matches = re.findall(time_pattern, gcap)
         if time_matches:
             timestamps = [[float(start), float(end)] for start, end in time_matches]  
 
@@ -91,64 +70,19 @@ def extract_time(paragraph):
             results.append([start, end])
         else:
             results.append([end, start])
-    if len(results) > 1:
-        results = results[:1]
     return results
 
-
-def format_tvg_output(paras):
-    timestamps = []
-    # type 1: directly detect timestamps in generated paragraph to process multi-lines cases like:
-    timestamps = extract_time(paras)
-    
+def extract_token_time(gcap, max_token, duration):
+    seg_duration = duration / max_token
+    time_pattern = r'<time><(\d+)><(\d+)></time>'
+    time_matches = re.findall(time_pattern, gcap)
+    timestamps = [[round(int(time)*seg_duration, 2) for time in time_pair] for time_pair in time_matches]
     return timestamps
 
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--inpath', default='/home/yaolinli/code/Ask-Anything/video_chat/output/eval_7b_tvg_charades/charades_test_f8_result.json')
-    parser.add_argument('--outpath', default='')
-    args = parser.parse_args()
-    
-    datas = read_json(args.inpath)
-    # example in output file
-    # {
-    #     "query_idx": 
-    #         {
-    #             "timestamp": [47.0, 60.0],
-    #             "query": "a person is shown tying a plant into a bun.",
-    #             "vid": "xHr8X2Wpmno.mp4"
-    #         }, 
-    #     ...
-    # }
-    fmt_datas = {}
-    cnt = 0
-    for i, jterm in enumerate(datas):
-        vid = jterm["vname"]
-        query = jterm["query"]
-        gcap = jterm["generated_cap"]
-        qid = jterm["id"]
-        timestamps = format_tvg_output(gcap)
-        if len(timestamps) == 0:
-            cnt += 1
-            print(vid, query+"\n", gcap+"\n")
-            # pdb.set_trace()
-        else:
-            # print(gcap)
-            # print(timestamps)
-            pass
-        fmt_datas[qid] = {"timestamp": timestamps, "query": query, "vid": vid}
-
-    print(f'parse failed number: {cnt}')
-    split = args.inpath.split('/')[-1].split('_')[0]
-    out_file = args.inpath.split('/')[-2]
-    out_path = f'{out_file}_{split}.json'
-    if args.outpath != '':
-        Path(args.outpath).mkdir(parents=True, exist_ok=True)
-        out_path = os.path.join(args.outpath, out_path)
-        write_json(os.path.join(os.getcwd(), out_path), fmt_datas)
+def format_tvg_output(gcap, max_token=None, duration=None):
+    '''return like: `[[1.12, 4.21], [5.32, 4.09]]` '''
+    if max_token:
+        assert duration, "Please provide the duration of the video"
+        return extract_token_time(gcap, max_token, duration)
     else:
-        infile = args.inpath.split('/')[-1]
-        outfile = "fmt_" + infile
-        out_path = args.inpath.replace(infile, outfile)
-        write_json(out_path, fmt_datas)
+        return extract_time(gcap)

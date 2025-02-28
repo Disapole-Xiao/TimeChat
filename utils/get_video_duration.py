@@ -16,7 +16,7 @@ def get_video_duration(video_path):
         print(f'{video_path} read failed: {e}')
         return None
     
-video_dirs = ['data/Charades/videos', 'data/DiDeMo/videos', 'data/ActivityNet/anet_6fps_224']
+video_dirs = ['data/Charades/videos', 'data/DiDeMo/videos', 'data/ActivityNet/train_videos', 'data/ActivityNet/val_videos', 'data/ActivityNet/test_videos']
 for video_dir in video_dirs:
     res = {}
     video_files = os.listdir(video_dir)
@@ -27,7 +27,9 @@ for video_dir in video_dirs:
             print(f'{video_file} duration is None')
             continue
         res[video_file] = duration
-    output_file = os.path.join(os.path.dirname(video_dir), 'durations.json')
-    with open(output_file, 'w') as f:
-        json.dump(res, f)
+    output_file = os.path.join(os.path.dirname(video_dir), 'video_durations.json')
+    with open(output_file, '+') as f:
+        old = json.load(f)
+        old.update(res)
+        json.dump(old, f)
     print(f'save {output_file}, {len(res)} durations / {len(video_files)} videos')

@@ -8,7 +8,7 @@
 from timechat.datasets.builders.base_dataset_builder import load_dataset_config
 from timechat.common.registry import registry
 from timechat.datasets.builders.instruct_builder import Youcook2Instruct_Builder, TimeInstruct_Builder, Valley72kInstruct_Builder, QVhighlightsInstruct_Builder, \
-    CharadesInstruct_Builder
+    CharadesInstruct_Builder, DidemoInstruct_Builder, ActivityNetInstruct_Builder
 
 __all__ = [
     "Youcook2Instruct_Builder",

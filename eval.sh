@@ -47,6 +47,7 @@ python evaluate.py --anno_path ${ANNO_DIR} --video_path ${VIDEO_DIR} \
 --num_frames ${NUM_FRAME} --batch_size 4 \
 --prompt_file ${PROMPT_FILE} --timechat_model_path ${MODEL_DIR} \
 --gpu_id ${GPU_ID} \
+--sample_num 500 \
 --timechat_model_path ckpt/timechat/timechat_7b_paper.pth
 #--asr --asr_path ${ASR_DIR}
 #--debug

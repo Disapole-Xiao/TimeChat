@@ -1,9 +1,22 @@
+'''生成 timeit tvg instruct 数据集
+
+output data example:
+```
+    [
+        {    
+            "video": "xHr8X2Wpmno.mp4", 
+            "QA": [
+            {"q": "Localize the visual content described by the given textual query <query_placeholder> in the video, and output the start and end timestamps in seconds.",
+            "a": "The given query happens in the 12 seconds - 16 seconds. }
+            ]
+        },
+    ]
+```
+'''
+
 import json
 import argparse
 import os
-from copy import deepcopy
-import pdb
-import numpy as np
 import random
 from pathlib import Path
 
@@ -93,17 +106,7 @@ if __name__ == "__main__":
     parser.add_argument('--outpath', default='/data5/xzh/TimeChat/data/TimeIT/data/temporal_video_grounding/activitynet/')
     parser.add_argument('--ratio', type=float, default=-1)
     args = parser.parse_args()
-    '''output data example:
-    [
-        {    
-            "video": "xHr8X2Wpmno.mp4", 
-            "QA": [
-            {"q": "Localize the visual content described by the given textual query <query_placeholder> in the video, and output the start and end timestamps in seconds.",
-            "a": "The given query happens in the 12 seconds - 16 seconds. }
-            ]
-        },
-    ]
-    '''
+    
     prompts = list(get_prompt("prompts/video_grounding_prompts.json").values())
 
     video_root = "/data5/xzh/TimeChat/data/"

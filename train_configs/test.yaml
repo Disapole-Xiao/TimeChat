@@ -39,7 +39,7 @@ model:
 
 datasets:
   charades_instruct:
-    sample_ratio: 1
+    sample_ratio: 6
     build_info:
       anno_dir: "data/token600/charades_1000_token600.json"
     vis_processor:
@@ -61,7 +61,7 @@ datasets:
     num_frm: 16 # 96 
 
   activitynet_instruct:
-    sample_ratio: 1
+    sample_ratio: 3
     build_info:
       anno_dir: "data/token600/activitynet_1000_token600.json"
     vis_processor:
@@ -81,24 +81,25 @@ run:
 
   weight_decay: 0.05
   max_epoch: 2
-  iters_per_epoch: 3000  # data_size/(batch_size*gpu_num)
+  iters_per_epoch: 20  # data_size/(batch_size*gpu_num) 可以控制使用多少数据
   batch_size_train: 1
   batch_size_eval: 4
   num_workers: 6
-  warmup_steps: 1800  # iters_per_epoch*0.6
+  warmup_steps: 18  # iters_per_epoch*0.6
   accum_grad_iters: 4
 
   seed: 42
-  output_dir: "ckpt/timechat/train_tvg_anet1k_charades1k_didemo1k_token600"
+  output_dir: "ckpt/timechat/test"
 
   amp: True
   resume_ckpt_path: null
 
   evaluate: False 
   train_splits: ["train"]
+  # valid_splits: ["val"]
+  # test_splits: ["test"]
 
   device: "cuda"
   world_size: 1
   dist_url: "env://"
   distributed: True
-  # distributed: False
