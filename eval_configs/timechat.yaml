@@ -33,9 +33,6 @@ datasets:
         name: "alpro_video_eval"
         n_frms: 96
         image_size: 224
-    text_processor:
-      eval:
-        name: "blip_caption"
     num_video_query_token: 32
     tokenizer_name: "ckpt/Video-LLaMA-2-7B-Finetuned/llama-2-7b-chat-hf/"
     model_type: "llama_v2"
