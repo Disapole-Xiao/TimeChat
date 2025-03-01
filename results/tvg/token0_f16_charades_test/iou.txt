@@ -1,0 +1,4 @@
+# pred video timestamps 3720; # gt video timestamps 3720
+IOU 0.3: 26.263440860215052
+IOU 0.5: 13.306451612903226
+IOU 0.7: 3.870967741935484
