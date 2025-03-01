@@ -237,7 +237,7 @@ def main(args):
         video_path = 'data/Charades/videos'
     elif args.dataset == 'activitynet':
         anno_path = f'data/TimeIT/data/temporal_video_grounding/activitynet/activitynet_annotation/'
-        video_path = 'data/ActivityNet/train_videos'
+        video_path = f'data/ActivityNet/{args.split}_videos'
     # elif args.dataset == 'didemo':
     #     anno_path = f'data/TimeIT/data/temporal_video_grounding/didemo/didemo_annotation/'
     #     video_path = 'data/DiDeMo/videos'

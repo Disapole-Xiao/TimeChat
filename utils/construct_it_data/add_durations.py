@@ -16,7 +16,7 @@ def add_durations(data_path, duration_file, output_path):
         else:
             print(f'No duration found for {vid}')
     with open(output_path, 'w') as f:
-        json.dump(data, f)
+        json.dump(res, f)
     print(f'Finished saving {len(res)} items to {output_path}')
 
 if __name__ == '__main__':

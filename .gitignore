@@ -36,7 +36,7 @@ ckpt/
 wandb/
 nohup.out
 *.log
-log/
+logs/
 
 # local
 .vscode/
