@@ -205,6 +205,8 @@ class BaseTask:
                 break
 
             samples = next(data_loader)
+            if i == 0:
+                print(samples)
 
             samples = prepare_sample(samples, cuda_enabled=cuda_enabled)
             samples.update(

@@ -465,4 +465,11 @@ def create_runner_config_validator():
         help="Number of top k most similar samples from ITC/VTC selection to be tested.",
     )
 
+    # ====== log =======
+    validator.add_argument(
+        "use_wandb",
+        type=bool,
+        help="Whether to use wandb for logging.",
+    )
+
     return validator

@@ -96,11 +96,12 @@ def main():
     # datasets
     model = task.build_model(cfg)
 
-    if is_main_process():
+    if cfg.run_cfg.use_wandb != False and is_main_process():
         wandb.init(
             # Set the project where this run will be logged
             project="timechat",
             name=cfg.run_cfg.output_dir.split('/')[-1],
+            config=cfg,
         )
 
     runner = get_runner_class(cfg)(
