@@ -8,7 +8,7 @@ from typing import Dict, Sequence
 
 import torch
 import transformers
-from transformers import LlamaTokenizer
+from transformers import LlamaTokenizer, BertTokenizer
 
 from timechat.datasets.datasets.base_dataset import BaseDataset
 from timechat.processors import AlproVideoTrainProcessor
@@ -55,12 +55,16 @@ class Video_Instruct_Dataset(BaseDataset):
         self.vis_root = vis_root
         self.resize_size = 224
         self.num_frm = num_frm
-        self.tokenizer = LlamaTokenizer.from_pretrained(tokenizer_name, use_fast=False)
-        self.tokenizer.pad_token = self.tokenizer.unk_token
-        self.tokenizer.add_tokens([DEFAULT_IMAGE_PATCH_TOKEN], special_tokens=True)
-        self.IMAGE_PATCH_TOKEN_ID = self.tokenizer.get_vocab()[DEFAULT_IMAGE_PATCH_TOKEN]
+        self.llama_tokenizer = LlamaTokenizer.from_pretrained(tokenizer_name, use_fast=False)
+        self.llama_tokenizer.pad_token = self.llama_tokenizer.unk_token
+        self.llama_tokenizer.add_tokens([DEFAULT_IMAGE_PATCH_TOKEN], special_tokens=True)
+        self.IMAGE_PATCH_TOKEN_ID = self.llama_tokenizer.get_vocab()[DEFAULT_IMAGE_PATCH_TOKEN]
 
-        self.transform = AlproVideoTrainProcessor(
+        # tokenizer for qformer
+        self.bert_tokenizer = BertTokenizer.from_pretrained("/data5/xzh/pretrained/bert-base-uncased", truncation_side='left')
+        self.bert_tokenizer.add_special_tokens({"bos_token": "[DEC]"})
+
+        self.transform = vis_processor(
             image_size=self.resize_size, n_frms=self.num_frm
         ).transform
         self.data_type = data_type
@@ -97,21 +101,20 @@ class Video_Instruct_Dataset(BaseDataset):
                 cur_n_frm = video.shape[1]
                 cur_token_len = self.num_video_query_token * math.ceil(
                     cur_n_frm / self.stride) if self.stride > 0 else self.num_video_query_token
-                sources = preprocess_multimodal(copy.deepcopy(conversation_list), None, cur_token_len=cur_token_len,
-                                                msg=msg)
+                sources = preprocess_multimodal(copy.deepcopy(conversation_list), None, cur_token_len=cur_token_len, msg=msg)
                 new_sources = convert_source_vicuna_format(sources)
                 if index == 0:
                     print(new_sources)
                 if self.model_type == 'vicuna':
                     data_dict = preprocess(
                         new_sources,
-                        self.tokenizer,
+                        self.llama_tokenizer,
                         self.max_txt_len
                     )
                 elif self.model_type == 'llama_v2':
                     data_dict = preprocess_for_llama_v2(
                         new_sources,
-                        self.tokenizer,
+                        self.llama_tokenizer,
                         self.max_txt_len
                     )
                 else:
@@ -125,7 +128,7 @@ class Video_Instruct_Dataset(BaseDataset):
                 all_timestamps = msg.split('at')[1].replace('seconds.', '').strip().split(
                     ',')  # extract timestamps from msg
                 all_timestamps = [f'This frame is sampled at {t.strip()} second.' for t in all_timestamps]
-                all_timestamps = self.tokenizer(
+                all_timestamps = self.bert_tokenizer(
                     all_timestamps,
                     return_tensors="pt",
                     padding="longest",
@@ -159,14 +162,14 @@ class Video_Instruct_Dataset(BaseDataset):
         input_ids = torch.nn.utils.rnn.pad_sequence(
             input_ids,
             batch_first=True,
-            padding_value=self.tokenizer.pad_token_id)
+            padding_value=self.llama_tokenizer.pad_token_id)
         labels = torch.nn.utils.rnn.pad_sequence(labels,
                                                  batch_first=True,
                                                  padding_value=IGNORE_INDEX)
         batch = dict(
             input_ids=input_ids,
             labels=labels,
-            attention_mask=input_ids.ne(self.tokenizer.pad_token_id),
+            attention_mask=input_ids.ne(self.llama_tokenizer.pad_token_id),
         )
 
         if 'image' in instances[0]:
@@ -183,7 +186,7 @@ class Video_Instruct_Dataset(BaseDataset):
                 timestamps_input_ids = torch.nn.utils.rnn.pad_sequence(
                     timestamps_input_ids,
                     batch_first=True,
-                    padding_value=self.tokenizer.pad_token_id)
+                    padding_value=self.llama_tokenizer.pad_token_id)
                 timestamps_attention_mask = torch.nn.utils.rnn.pad_sequence(
                     timestamps_attention_mask,
                     batch_first=True,
