@@ -1,20 +1,20 @@
 #!/bin/bash
 
 # for all tvg eval:
-PROMPT_FILE="prompts/tvg_description.txt" # prompts/tvg_description.txt or prompts/tvg_description_zeroshot.txt
+PROMPT_FILE="prompts/tvg_description_zeroshot.txt"
 TIME=$(date +"%m%d%H%M")
-NUM_FRAME=16
-BATCH_SIZE=8
-CKPT=timechat/ckpt/timechat/train_tvg_anet_charades_didemo_full_fixqformer_f16_token600/20250302081/checkpoint_0.pth
-# CKPT=timechat/ckpt/timechat/train_tvg_anet_charades_didemo_full_fixqformer_f16/20250302081/checkpoint_0.pth
+NUM_FRAME=96
+BATCH_SIZE=4
 
-TOKEN=600
-GPU_ID=1
+CKPT=ckpt/timechat/timechat_7b_paper.pth
+
+TOKEN=0
+GPU_ID=3
 
 DATASET=charades # charades, activitynet or didemo
 SPLIT=test # train, val or test
 
-OUTPUT_DIR=results/tvg/full_token${TOKEN}_fixqformer_f${NUM_FRAME}_${DATASET}_${SPLIT}_${TIME}
+OUTPUT_DIR=results/tvg/timechat_f${NUM_FRAME}_${DATASET}_${SPLIT}_${TIME}
 python evaluate.py \
 --dataset ${DATASET} \
 --split ${SPLIT} \

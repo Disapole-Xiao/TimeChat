@@ -208,6 +208,24 @@ def main(args):
     torch.manual_seed(seed)
     cudnn.benchmark = False
     cudnn.deterministic = True
+
+    # get anno/video path
+    if args.dataset == 'charades':
+        anno_path = f'data/TimeIT/data/temporal_video_grounding/charades/charades_annotation/'
+        video_path = 'data/Charades/videos'
+    elif args.dataset == 'activitynet':
+        anno_path = f'data/TimeIT/data/temporal_video_grounding/activitynet/activitynet_annotation/'
+        video_path = f'data/ActivityNet/anet_6fps_224'
+    # elif args.dataset == 'didemo':
+    #     anno_path = f'data/TimeIT/data/temporal_video_grounding/didemo/didemo_annotation/'
+    #     video_path = 'data/DiDeMo/videos'
+    
+    # 如果传入了路径，直接使用
+    if args.anno_path: anno_path = args.anno_path
+    if args.video_path: video_path = args.video_path
+    assert anno_path is not None and video_path is not None, "The dataset is not supported, please provide the your own ann_path and video_path"
+    args.anno_path = anno_path
+    args.video_path = video_path
     
     cfg = Config(args)
     model_config = cfg.model_cfg
@@ -231,22 +249,7 @@ def main(args):
     chat = Chat(model, vis_processor, device=device)
     print('Initialization Finished')
 
-    # get anno/video path
-    if args.dataset == 'charades':
-        anno_path = f'data/TimeIT/data/temporal_video_grounding/charades/charades_annotation/'
-        video_path = 'data/Charades/videos'
-    elif args.dataset == 'activitynet':
-        anno_path = f'data/TimeIT/data/temporal_video_grounding/activitynet/activitynet_annotation/'
-        video_path = f'data/ActivityNet/anet_6fps_224'
-    # elif args.dataset == 'didemo':
-    #     anno_path = f'data/TimeIT/data/temporal_video_grounding/didemo/didemo_annotation/'
-    #     video_path = 'data/DiDeMo/videos'
     
-    # 如果传入了路径，直接使用
-    if args.anno_path: anno_path = args.anno_path
-    if args.video_path: video_path = args.video_path
-
-    assert anno_path is not None and video_path is not None, "The dataset is not supported, please provide the your own ann_path and video_path"
     
     # load data
     anno_data = load_data(args, anno_path, split=args.split)

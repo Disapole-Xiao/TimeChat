@@ -35,41 +35,52 @@ model:
   qformer_text_input: True
   window_size: 32
   stride: 32
-  max_time_token: 600
+  # max_time_token: 600 #
 
 datasets:
-  charades_instruct:
-    sample_ratio: 6
+  time_instruct:
     build_info:
-      anno_dir: "data/token600/charades_1000_token600.json"
+      # anno_dir: "data/token600/instruct_time-sensitive_token600.json"
+      anno_dir: "data/tvg/instruct_time-sensitive.json"
     vis_processor:
       train:
         n_frms: 16 # 96
       eval:
         n_frms: 16 # 96
-    num_frm: 16 # 96 
+    num_frm: 16 # 96
 
-  didemo_instruct:
-    sample_ratio: 1
-    build_info:
-      anno_dir: "data/token600/didemo_1000_token600.json"
-    vis_processor:
-      train:
-        n_frms: 16 # 96
-      eval:
-        n_frms: 16 # 96
-    num_frm: 16 # 96 
+  # charades_instruct:
+  #   sample_ratio: 6
+  #   build_info:
+  #     anno_dir: "data/token600/charades_1000_token600.json"
+  #   vis_processor:
+  #     train:
+  #       n_frms: 16 # 96
+  #     eval:
+  #       n_frms: 16 # 96
+  #   num_frm: 16 # 96 
 
-  activitynet_instruct:
-    sample_ratio: 3
-    build_info:
-      anno_dir: "data/token600/activitynet_1000_token600.json"
-    vis_processor:
-      train:
-        n_frms: 16 # 96
-      eval:
-        n_frms: 16 # 96
-    num_frm: 16 # 96 
+  # didemo_instruct:
+  #   sample_ratio: 1
+  #   build_info:
+  #     anno_dir: "data/token600/didemo_1000_token600.json"
+  #   vis_processor:
+  #     train:
+  #       n_frms: 16 # 96
+  #     eval:
+  #       n_frms: 16 # 96
+  #   num_frm: 16 # 96 
+
+  # activitynet_instruct:
+  #   sample_ratio: 3
+  #   build_info:
+  #     anno_dir: "data/token600/activitynet_1000_token600.json"
+  #   vis_processor:
+  #     train:
+  #       n_frms: 16 # 96
+  #     eval:
+  #       n_frms: 16 # 96
+  #   num_frm: 16 # 96 
 
 run:
   task: video_text_pretrain
@@ -85,7 +96,7 @@ run:
   batch_size_train: 1
   batch_size_eval: 4
   num_workers: 6
-  warmup_steps: 18  # iters_per_epoch*0.6
+  warmup_steps: 12  # iters_per_epoch*0.6
   accum_grad_iters: 4
 
   seed: 42
@@ -103,3 +114,4 @@ run:
   world_size: 1
   dist_url: "env://"
   distributed: True
+  use_wandb: False

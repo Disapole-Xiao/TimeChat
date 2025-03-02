@@ -64,9 +64,7 @@ class Video_Instruct_Dataset(BaseDataset):
         self.bert_tokenizer = BertTokenizer.from_pretrained("/data5/xzh/pretrained/bert-base-uncased", truncation_side='left')
         self.bert_tokenizer.add_special_tokens({"bos_token": "[DEC]"})
 
-        self.transform = vis_processor(
-            image_size=self.resize_size, n_frms=self.num_frm
-        ).transform
+        self.transform = vis_processor.transform
         self.data_type = data_type
         self.model_type = model_type
         self.sample_type = sample_type

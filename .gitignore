@@ -31,6 +31,7 @@ MANIFEST
 # data and checkpoints
 data/
 ckpt/
+results/
 
 # logs
 wandb/
